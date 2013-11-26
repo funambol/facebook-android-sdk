@@ -48,6 +48,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * any time.
  */
 public final class Utility {
+
+
+    public static String FACEBOOK_API_KEY = null;
+    
     static final String LOG_TAG = "FacebookSDK";
     private static final String HASH_ALGORITHM_MD5 = "MD5";
     private static final String URL_SCHEME = "https";
@@ -193,7 +197,7 @@ public final class Utility {
             // if we can't find it in the manifest, just return null
         }
 
-        return null;
+        return FACEBOOK_API_KEY;
     }
 
     static Map<String, Object> convertJSONObjectToHashMap(JSONObject jsonObject) {
