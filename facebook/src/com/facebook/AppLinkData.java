@@ -21,10 +21,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
+import android.text.TextUtils;
 import android.util.Log;
-import com.facebook.internal.*;
+import com.facebook.internal.AttributionIdentifiers;
+import com.facebook.internal.Utility;
+import com.facebook.internal.Validate;
 import com.facebook.model.GraphObject;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -131,7 +132,7 @@ public class AppLinkData {
         deferredApplinkParams.setProperty("event", DEFERRED_APP_LINK_EVENT);
         Utility.setAppEventAttributionParameters(deferredApplinkParams,
                 AttributionIdentifiers.getAttributionIdentifiers(context),
-                Utility.getHashedDeviceAndAppID(context, applicationId),
+                AppEventsLogger.getAnonymousAppDeviceGUID(context),
                 Settings.getLimitEventAndDataUsage(context));
         deferredApplinkParams.setProperty("application_package_name", context.getPackageName());
 
@@ -150,7 +151,7 @@ public class AppLinkData {
                 final String appLinkClassName = jsonResponse.optString(DEFERRED_APP_LINK_CLASS_FIELD);
                 final String appLinkUrl = jsonResponse.optString(DEFERRED_APP_LINK_URL_FIELD);
 
-                if (appLinkArgsJsonString != null && appLinkArgsJsonString != "") {
+                if (!TextUtils.isEmpty(appLinkArgsJsonString)) {
                     appLinkData = createFromJson(appLinkArgsJsonString);
 
                     if (tapTimeUtc != -1) {

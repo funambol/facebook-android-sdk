@@ -390,12 +390,52 @@ public class RequestTests extends FacebookTestCase {
         assertEquals("Paris", graphPlace.getLocation().getCity());
     }
 
+    @LargeTest
+    public void testBuildsUploadPhotoHttpURLConnection() throws Exception {
+        TestSession session = openTestSessionWithSharedUser();
+        Bitmap image = createTestBitmap(128);
+
+        Request request = Request.newUploadPhotoRequest(session, image, null);
+        HttpURLConnection connection = Request.toHttpConnection(request);
+
+        assertTrue(connection != null);
+        assertNotSame("gzip", connection.getRequestProperty("Content-Encoding"));
+        assertNotSame("application/x-www-form-urlencoded", connection.getRequestProperty("Content-Type"));
+    }
+
+    @LargeTest
+    public void testBuildsUploadVideoHttpURLConnection() throws IOException, URISyntaxException {
+        File tempFile = null;
+        try {
+            TestSession session = openTestSessionWithSharedUser();
+            tempFile = createTempFileFromAsset("DarkScreen.mov");
+
+            Request request = Request.newUploadVideoRequest(session, tempFile, null);
+            HttpURLConnection connection = Request.toHttpConnection(request);
+
+            assertTrue(connection != null);
+            assertNotSame("gzip", connection.getRequestProperty("Content-Encoding"));
+            assertNotSame("application/x-www-form-urlencoded", connection.getRequestProperty("Content-Type"));
+
+        } catch (Exception ex) {
+            return;
+        } finally {
+            if (tempFile != null) {
+                tempFile.delete();
+            }
+        }
+    }
+
+
     @MediumTest
     @LargeTest
     public void testExecuteSingleGetUsingHttpURLConnection() throws IOException {
         TestSession session = openTestSessionWithSharedUser();
         Request request = new Request(session, "TourEiffel");
         HttpURLConnection connection = Request.toHttpConnection(request);
+
+        assertEquals("gzip", connection.getRequestProperty("Content-Encoding"));
+        assertEquals("application/x-www-form-urlencoded", connection.getRequestProperty("Content-Type"));
 
         List<Response> responses = Request.executeConnectionAndWait(connection, Arrays.asList(new Request[]{request}));
         assertNotNull(responses);
@@ -433,27 +473,6 @@ public class RequestTests extends FacebookTestCase {
 
         assertTrue(exception instanceof FacebookServiceException);
         assertNotNull(error.getErrorType());
-        assertTrue(error.getErrorCode() != FacebookRequestError.INVALID_ERROR_CODE);
-        assertNotNull(error.getRequestResultBody());
-    }
-
-    @LargeTest
-    public void testFacebookSuccessResponseWithErrorCodeCreatesError() {
-        TestSession session = openTestSessionWithSharedUser();
-
-        Request request = Request.newRestRequest(session, "auth.extendSSOAccessToken", null, null);
-        assertNotNull(request);
-
-        // Because TestSession access tokens were not created via SSO, we expect to get an error from the service,
-        // but with a 200 (success) code.
-        Response response = request.executeAndWait();
-
-        assertTrue(response != null);
-
-        FacebookRequestError error = response.getError();
-        assertNotNull(error);
-
-        assertTrue(error.getException() instanceof FacebookServiceException);
         assertTrue(error.getErrorCode() != FacebookRequestError.INVALID_ERROR_CODE);
         assertNotNull(error.getRequestResultBody());
     }
@@ -622,7 +641,7 @@ public class RequestTests extends FacebookTestCase {
         GraphObject result = response.getGraphObject();
         assertNotNull(result);
 
-        assertTrue((Boolean) result.getProperty(Response.NON_JSON_RESPONSE_PROPERTY));
+        assertTrue((Boolean) result.getProperty(Response.SUCCESS_KEY));
         assertNotNull(response.getRawResponse());
     }
 
@@ -734,30 +753,6 @@ public class RequestTests extends FacebookTestCase {
         assertEquals(statusUpdate.getProperty("message"), retrievedStatusUpdate.getProperty("message"));
     }
 
-    @LargeTest
-    public void testRestMethodGetUser() {
-        TestSession session = openTestSessionWithSharedUser();
-        String testUserId = session.getTestUserId();
-
-        Bundle parameters = new Bundle();
-        parameters.putString("uids", testUserId);
-        parameters.putString("fields", "uid,name");
-
-        Request request = Request.newRestRequest(session, "users.getInfo", parameters, null);
-        Response response = request.executeAndWait();
-        assertNotNull(response);
-
-        GraphObjectList<GraphObject> graphObjects = response.getGraphObjectList();
-        assertNotNull(graphObjects);
-        assertEquals(1, graphObjects.size());
-
-        GraphObject user = graphObjects.get(0);
-        assertNotNull(user);
-        assertEquals(testUserId, user.getProperty("uid").toString());
-
-        assertNotNull(response.getRawResponse());
-    }
-
     @MediumTest
     @LargeTest
     public void testCallbackIsCalled() {
@@ -857,20 +852,6 @@ public class RequestTests extends FacebookTestCase {
 
     @MediumTest
     @LargeTest
-    public void testCantSetBothGraphPathAndRestMethod() {
-        Request request = new Request();
-        request.setGraphPath("me");
-        request.setRestMethod("amethod");
-        request.setCallback(new ExpectFailureCallback());
-
-        TestRequestAsyncTask task = new TestRequestAsyncTask(request);
-        task.executeOnBlockerThread();
-
-        waitAndAssertSuccess(1);
-    }
-
-    @MediumTest
-    @LargeTest
     public void testClosedSessionDoesntAppendAccessToken() {
         TestSession session = openTestSessionWithSharedUser();
         session.close();
@@ -912,7 +893,7 @@ public class RequestTests extends FacebookTestCase {
         TestSession session = openTestSessionWithSharedUser();
         final List<GraphPlace> returnedPlaces = new ArrayList<GraphPlace>();
         Request request = Request
-                .newPlacesSearchRequest(session, SEATTLE_LOCATION, 1000, 5, null, new Request.GraphPlaceListCallback() {
+                .newPlacesSearchRequest(session, SEATTLE_LOCATION, 1000, 3, null, new Request.GraphPlaceListCallback() {
                     @Override
                     public void onCompleted(List<GraphPlace> places, Response response) {
                         returnedPlaces.addAll(places);
