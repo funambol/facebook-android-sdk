@@ -461,6 +461,7 @@ public final class Utility {
     }
 
     public static String getMetadataApplicationId(Context context) {
+        // Customization: instead of loading the app id from the manifest, we return a predefined value
         return FACEBOOK_API_KEY;
     }
 
